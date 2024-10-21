@@ -1,0 +1,51 @@
+
+services : # 컨테이너 설정
+  backend : # 서비스 이름
+    build:
+      context: .
+      dockerfile: docker/spring.dockerfile
+    ports :
+      - "8080:8080" # 외부 포트 : 내부 포트
+    expose: # 호스트 머신 상에 포트를 노출한다. 링크된 서비스만 액세스 가능
+      - 8080
+    restart: always
+    container_name : backend-spring
+    environment:
+      # SPRING_DATASOURCE_URL: jdbc:mysql://localhost:3306/apptoon?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/actoon?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      SPRING_DATASOURCE_USERNAME : toon1234
+      SPRING_DATASOURCE_PASSWORD: toon1234
+      DATABASE_PORT: 3306
+    volumes:
+      - ./static:/app/static
+    depends_on: # 컨테이너 간 생성 순서를 결정. spring은 db와 redis가 둘 다 생성되고 난 후 생성된다.
+      - db
+      - redis
+  redis :
+    container_name: redis
+    hostname: redis
+    image : redis:alpine
+    ports:
+      - "6379:6379"
+    expose:
+      - 6379
+    volumes:
+      - ./docker/redis:/redis
+  db:
+    container_name: mysql
+    image : mysql:8.0
+    restart : always
+    hostname: mysql
+    environment: # 컨테이너 안의 환경 변수 설정
+      - MYSQL_DATABASE=actoon
+      - MYSQL_USER=toon1234
+      - MYSQL_PASSWORD=toon1234
+      - MYSQL_ROOT_PASSWORD=1234
+    ports:
+      - "3307:3306"
+    expose:
+      - 3306
+    volumes:
+      - ./docker/db:/var/lib/mysql
+      - ./docker/conf:/etc/mysql/conf.d
+
