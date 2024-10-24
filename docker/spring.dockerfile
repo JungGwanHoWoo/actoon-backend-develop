@@ -16,7 +16,9 @@ CMD ["ls"]
 # 도커 시스템 진입점이 어디인가?
 # ENTRYPOINT ["java","-Djava.security.egd=file:/dev/./urandom","-jar","app.jar"]
 COPY docker/wait-for-it.sh /wait-for-it.sh
-RUN chmod +x /wait-for-it.sh
+RUN chmod +x /wait-for-it.sh && \
+    mkdir -p /app/static/uploads && \
+    chmod -R 777 /app/static
 
 ENTRYPOINT ["/wait-for-it.sh","db:3306","--","java","-jar","app.jar"]
 

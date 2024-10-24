@@ -17,7 +17,7 @@ services : # 컨테이너 설정
       SPRING_DATASOURCE_PASSWORD: toon1234
       DATABASE_PORT: 3306
     volumes:
-      - ./static:/app/static
+      - ./static:/app/static/uploads/
     depends_on: # 컨테이너 간 생성 순서를 결정. spring은 db와 redis가 둘 다 생성되고 난 후 생성된다.
       - db
       - redis

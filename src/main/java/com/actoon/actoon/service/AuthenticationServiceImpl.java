@@ -1,11 +1,34 @@
 package com.actoon.actoon.service;
 
+import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import static java.time.temporal.ChronoUnit.DAYS;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+
+import javax.naming.NoPermissionException;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.actoon.actoon.domain.RefreshToken;
 import com.actoon.actoon.domain.User;
 import com.actoon.actoon.dto.BasicResponse;
 import com.actoon.actoon.dto.JwtAuthenticationRequest;
 import com.actoon.actoon.dto.JwtAuthenticationResponse.*;
+import com.actoon.actoon.dto.JwtAuthenticationResponse.IssueJwtAuthentication;
+import com.actoon.actoon.dto.JwtAuthenticationResponse.ReissueJwtAuthenticaiton;
 import com.actoon.actoon.dto.UserDto.*;
+import com.actoon.actoon.dto.UserDto.ChangeNicknameResponseDto;
+import com.actoon.actoon.dto.UserDto.SignInDto;
+import com.actoon.actoon.dto.UserDto.SignUpDto;
 import com.actoon.actoon.exception.ErrorCode;
 import com.actoon.actoon.repository.EmailRedisRepository;
 import com.actoon.actoon.repository.TokenRepository;
@@ -13,22 +36,8 @@ import com.actoon.actoon.repository.UserRepository;
 import com.actoon.actoon.service.interfaces.AuthenticationService;
 import com.actoon.actoon.util.PasswordEncryptFactory;
 import com.actoon.actoon.util.Role;
+
 import io.jsonwebtoken.security.SignatureException;
-import org.springframework.http.HttpStatus;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import javax.naming.NoPermissionException;
-import java.text.SimpleDateFormat;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-
-import static java.time.temporal.ChronoUnit.DAYS;
 
 // signIn하면 호출된다.
 @Service
@@ -192,42 +201,43 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         return response;
     }
 
-    public Map<String, Object> getAboutMe(int userId){
+    public Map<String, Object> getAboutMe(int userId) {
 
-        Map<String, Object> aboutMe = new HashMap<>();
+    Map<String, Object> aboutMe = new HashMap<>();
 
-        Optional<User> user = userRepository.findByUuid(userId);
+    Optional<User> user = userRepository.findByUuid(userId);
 
-        if(user.isEmpty()){
-            aboutMe.put("state", HttpStatus.BAD_REQUEST);
-            aboutMe.put("message", "로그인 해주세요.");
-            return aboutMe;
-        }
-
-        User curUser = user.get();
-
-        String email = curUser.getEmail();
-        String nickname = curUser.getNickname();
-        String last_change = curUser.getLast_change();
-        String profile = curUser.getProfile();
-
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-
-        LocalDate updated = LocalDate.parse(last_change, formatter);
-        LocalDate now = LocalDate.now();
-
-        long days = DAYS.between(updated, now);
-        boolean changeable = days > 7;
-
-
-        aboutMe.put("state", HttpStatus.OK);
-        aboutMe.put("message", "내 정보를 불러왔습니다.");
-
-        aboutMe.put("email", email);
-        aboutMe.put("nickname", nickname);
-        aboutMe.put("changeable", changeable);
-        aboutMe.put("profile_url", profile);
-
+    if (user.isEmpty()) {
+        aboutMe.put("state", HttpStatus.BAD_REQUEST);
+        aboutMe.put("message", "로그인 해주세요.");
         return aboutMe;
     }
+
+    User curUser = user.get();
+
+    String email = curUser.getEmail();
+    String nickname = curUser.getNickname();
+    String last_change = curUser.getLast_change();
+    String profile = curUser.getProfile();
+
+    // 수정된 포맷: 마이크로초까지 처리
+    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS");
+
+    // LocalDateTime으로 변경
+    LocalDateTime updated = LocalDateTime.parse(last_change, formatter);
+    LocalDateTime now = LocalDateTime.now();
+
+    // 날짜 차이를 계산 (일 단위)
+    long days = ChronoUnit.DAYS.between(updated, now);
+    boolean changeable = days > 7;
+
+    aboutMe.put("state", HttpStatus.OK);
+    aboutMe.put("message", "내 정보를 불러왔습니다.");
+    aboutMe.put("email", email);
+    aboutMe.put("nickname", nickname);
+    aboutMe.put("changeable", changeable);
+    aboutMe.put("profile_url", profile);
+
+    return aboutMe;
+}
 }

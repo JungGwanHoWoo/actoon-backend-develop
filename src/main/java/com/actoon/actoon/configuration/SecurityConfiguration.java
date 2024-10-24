@@ -1,8 +1,5 @@
 package com.actoon.actoon.configuration;
 
-import com.actoon.actoon.service.interfaces.UserService;
-import com.actoon.actoon.util.JwtAuthenticationFilter;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -17,6 +14,11 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+import com.actoon.actoon.service.interfaces.UserService;
+import com.actoon.actoon.util.JwtAuthenticationFilter;
+
+import lombok.RequiredArgsConstructor;
 //import
 /*
 
@@ -51,7 +53,7 @@ public class SecurityConfiguration {
                         request
                                 //.requestMatchers("/**").permitAll()
                                 .requestMatchers("/user/**", "/main/**", "/mail/**", "/error", "/admin/signin", "/non-users/**", "/upload/download/**").permitAll()
-                                .requestMatchers("/webtoon/**", "/upload/**", "/noticeboard/**").hasAnyRole("USER", "ADMIN")
+                                .requestMatchers("/webtoon/**", "/upload/**", "/noticeboard/**", "/download/**", "download/**").hasAnyRole("USER", "ADMIN")
                                 .requestMatchers("/admin/**").hasRole("ADMIN")
                 )
                 // .sessionManagement(manager -> manager.sessionCreationPolicy(STATELESS))

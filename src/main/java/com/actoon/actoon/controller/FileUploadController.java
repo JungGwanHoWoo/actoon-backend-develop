@@ -11,16 +11,14 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.PathVariable;
-
 
 import com.actoon.actoon.dto.ExceptionResponse;
-import com.actoon.actoon.dto.UploadFileDto.*;
 import com.actoon.actoon.dto.UploadFileDto.UploadFileRequestDto;
 import com.actoon.actoon.service.FileUploadService;
 import com.actoon.actoon.service.JwtServiceImpl;
@@ -69,7 +67,6 @@ public class FileUploadController {
 
         try {
             Map<String, Object> fileInfo = fileService.storeNoticeBoardFile(files);
-
             return ResponseEntity.status(200).body(fileInfo);
         } catch (Exception e) {
             System.out.println("EXCEPTION : " + e.getMessage());
