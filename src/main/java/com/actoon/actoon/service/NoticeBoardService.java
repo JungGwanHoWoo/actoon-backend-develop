@@ -95,7 +95,6 @@ public class NoticeBoardService {
                 }
             }
 
-
             // 5. 수집된 파일 정보 리스트를 DTO에 설정합니다
             noticeBoardInfo.setFileInfoList(fileInfoList);
 
@@ -144,7 +143,7 @@ public class NoticeBoardService {
                     .builder()
                     .title(noticeBoardInfo.getTitle())
                     .content(noticeBoardInfo.getContent())
-                    .fileId(noticeBoardInfo.getFileIds().isEmpty() ? null : noticeBoardInfo.getFileIds().get(0)) // 첫 번째 fileId 사용
+                    .fileId(null) // fileId 기본값을 null로 설정
                     .build();
 
             // 현재 날짜 설정
@@ -156,15 +155,22 @@ public class NoticeBoardService {
             noticeBoard.setUserId(user.getUuid());
             noticeBoardRepository.save(noticeBoard);
 
-            // Chain 엔티티에서 noticeBoard의 uuid를 가져와서 저장
-            for (Integer fileId : noticeBoardInfo.getFileIds()) { // 모든 fileId에 대해 반복
-                System.out.println("fileId: " + fileId);
-                Chain chain = Chain.builder() // Builder 패턴을 사용하여 Chain 객체 생성
-                        .fileId(fileId) // 반복문에서 가져온 fileId
-                        .boardId(noticeBoard.getUuid()) // 게시판의 uuid를 boardId로 설정
-                        .build(); // Chain 객체 생성
+            // fileIds가 null이 아니고 비어있지 않은 경우에만 Chain 엔티티 처리
+            if (noticeBoardInfo.getFileIds() != null && !noticeBoardInfo.getFileIds().isEmpty()) {
+                // 첫 번째 fileId를 noticeBoard에 설정
+                noticeBoard.setFileId(noticeBoardInfo.getFileIds().get(0));
+                noticeBoardRepository.save(noticeBoard);
 
-                chainRepository.save(chain); // Chain 저장
+                // Chain 엔티티 생성 및 저장
+                for (Integer fileId : noticeBoardInfo.getFileIds()) {
+                    if (fileId != null) {  // fileId가 null이 아닌 경우에만 처리
+                        Chain chain = Chain.builder()
+                                .fileId(fileId)
+                                .boardId(noticeBoard.getUuid())
+                                .build();
+                        chainRepository.save(chain);
+                    }
+                }
             }
 
             // 응답 데이터 설정
@@ -174,11 +180,9 @@ public class NoticeBoardService {
             return map;
 
         } catch (IllegalArgumentException e) {
-            // 에러 처리
             System.out.println("MSG : " + e.getMessage());
             throw new IllegalArgumentException("잘못된 값입니다.");
         } catch (Exception e) {
-            // 에러 처리
             System.out.println("EXCEPTION MSG : " + e.getMessage());
             throw new IllegalArgumentException(e.getMessage());
         }
