@@ -14,15 +14,16 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.actoon.actoon.domain.NoticeBoard;
 import com.actoon.actoon.dto.ExceptionResponse;
 import com.actoon.actoon.dto.NoticeBoardRequestDTO.NoticeBoardCreateRequestDTO;
+import com.actoon.actoon.dto.NoticeBoardRequestDTO.NoticeBoardUpdateRequestDTO;
 import com.actoon.actoon.dto.NoticeBoardResponseDTO;
 import com.actoon.actoon.dto.NoticeBoardResponseDTO.NoticeBoardStateResponseDto;
 import com.actoon.actoon.dto.NoticeBoardResponseDTO.ReadResponseDto;
@@ -86,6 +87,29 @@ public class NoticeBoardController {
         }
     }
 
+    @PutMapping("/{uuid}")
+    public ResponseEntity<?> update(
+            @RequestHeader HttpHeaders headers,
+            @PathVariable ("uuid") int noticeBoardId,
+            @RequestBody NoticeBoardUpdateRequestDTO noticeBoardInfo) {
+        try {
+            System.out.println(noticeBoardInfo.toString());
+            // JWT 토큰에서 Bearer 제거 후 이메일 추출
+            String token = headers.get("Authorization").get(0).substring(7);
+            String email = jwtService.extractUserName(token);
+
+            // 서비스 메서드 호출
+            Map<String, Object> result = noticeBoardService.updateNoticeBoard(email, noticeBoardId, noticeBoardInfo);
+
+            return ResponseEntity.status(HttpStatus.OK).body(result);
+        } catch (Exception e) {
+            Map<String, Object> result = new HashMap<>();
+            result.put("state", HttpStatus.BAD_REQUEST);
+            result.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(result);
+        }
+    }
+
     @DeleteMapping("/{uuid}")
     public ResponseEntity<?> delete(@RequestHeader HttpHeaders headers, @PathVariable("uuid") int noticeBoardId) {
         try {
@@ -101,7 +125,7 @@ public class NoticeBoardController {
     }
 
     @GetMapping("/noticeboard-state")
-    public ResponseEntity<?> getAllWebtoonState(@RequestHeader HttpHeaders headers){
+    public ResponseEntity<?> getAllWebtoonState(@RequestHeader HttpHeaders headers) {
 
         try {
             String token = headers.get("Authorization").get(0).substring(7);
@@ -110,8 +134,7 @@ public class NoticeBoardController {
             NoticeBoardStateResponseDto response = noticeBoardService.getNoticeBoardState(userId);
 
             return ResponseEntity.status(200).body(response);
-        }
-        catch (Exception e){
+        } catch (Exception e) {
             return ResponseEntity.status(400).body(e.getMessage());
         }
     }

@@ -1,20 +1,14 @@
 package com.actoon.actoon.service;
 
-import com.actoon.actoon.domain.FileInfoRegister;
-import com.actoon.actoon.domain.Webtoon;
-import com.actoon.actoon.domain.WebtoonFileInfo;
-import com.actoon.actoon.dto.FileDto.*;
-import com.actoon.actoon.dto.FileInfoDto.*;
-import com.actoon.actoon.dto.UserDto.*;
-import com.actoon.actoon.dto.WebtoonRequestDto.*;
-import com.actoon.actoon.dto.WebtoonInfoDto;
-import com.actoon.actoon.dto.WebtoonResponseDto.*;
-import com.actoon.actoon.exception.ErrorCode;
-import com.actoon.actoon.repository.FileUploadRepository;
-import com.actoon.actoon.repository.UserRepository;
-import com.actoon.actoon.repository.WebtoonFileRepository;
-import com.actoon.actoon.repository.WebtoonRepository;
-import com.actoon.actoon.util.WebtoonProgressState;
+import java.sql.SQLException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.naming.NoPermissionException;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,10 +19,27 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.naming.NoPermissionException;
-import java.sql.SQLException;
-import java.text.SimpleDateFormat;
-import java.util.*;
+import com.actoon.actoon.domain.FileInfoRegister;
+import com.actoon.actoon.domain.Webtoon;
+import com.actoon.actoon.domain.WebtoonFileInfo;
+import com.actoon.actoon.dto.FileDto.*;
+import com.actoon.actoon.dto.FileDto.CompleteFilesInfoDto;
+import com.actoon.actoon.dto.FileInfoDto.*;
+import com.actoon.actoon.dto.FileInfoDto.FileInfoResponseDto;
+import com.actoon.actoon.dto.UserDto.*;
+import com.actoon.actoon.dto.UserDto.UserInfo;
+import com.actoon.actoon.dto.WebtoonInfoDto;
+import com.actoon.actoon.dto.WebtoonRequestDto.*;
+import com.actoon.actoon.dto.WebtoonRequestDto.WebtoonCreateRequestDto;
+import com.actoon.actoon.dto.WebtoonResponseDto.*;
+import com.actoon.actoon.dto.WebtoonResponseDto.ReadResponseDto;
+import com.actoon.actoon.dto.WebtoonResponseDto.WebtoonStateResponseDto;
+import com.actoon.actoon.exception.ErrorCode;
+import com.actoon.actoon.repository.FileUploadRepository;
+import com.actoon.actoon.repository.UserRepository;
+import com.actoon.actoon.repository.WebtoonFileRepository;
+import com.actoon.actoon.repository.WebtoonRepository;
+import com.actoon.actoon.util.WebtoonProgressState;
 
 
 // 웹툰에 관련한 요청을 처리하는 서비스 로직
@@ -381,6 +392,7 @@ public class WebtoonService {
          int rejected = 0;
          int continued = 0;
          int completed = 0;
+         int waiting = 0;
          int total = 0;
 
          for(Webtoon webtoon : webtoons){
@@ -395,6 +407,9 @@ public class WebtoonService {
                  continued++;
              }
 
+             if(state.equals("WAITING")){
+                 completed++;
+             }
              if(state.equals("COMPLETE")){
                  completed++;
              }
@@ -405,10 +420,10 @@ public class WebtoonService {
          WebtoonStateResponseDto response = new WebtoonStateResponseDto();
          response.setState(HttpStatus.OK);
          response.setMessage("현재까지 진행 중인 작품 수입니다.");
-
          response.setCompleted(completed);
          response.setContinued(continued);
          response.setRejected(rejected);
+         response.setWaiting(waiting);
          response.setTotal(total);
 
          return response;

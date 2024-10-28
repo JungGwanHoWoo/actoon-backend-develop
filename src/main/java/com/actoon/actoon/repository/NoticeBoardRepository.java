@@ -1,6 +1,7 @@
 package com.actoon.actoon.repository;
 
-import com.actoon.actoon.domain.NoticeBoard;
+import java.util.List;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -9,7 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
+import com.actoon.actoon.domain.NoticeBoard;
 
 @Repository
 public interface NoticeBoardRepository extends JpaRepository<NoticeBoard, Integer> {

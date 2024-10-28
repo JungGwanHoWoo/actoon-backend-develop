@@ -7,7 +7,8 @@ public enum WebtoonProgressState {
 
     COMPLETE("COMPLETE", 0),
     REJECT("REJECT", 1),
-    CONTINUE("CONTINUE", 2);
+    CONTINUE("CONTINUE", 2),
+    WAITING("WAITING", 3);
 
     private String state;
     private int progress;

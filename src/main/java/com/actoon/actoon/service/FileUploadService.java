@@ -27,6 +27,7 @@ import com.actoon.actoon.domain.NoticeBoardFileInfo;
 import com.actoon.actoon.domain.WebtoonFileInfo;
 import com.actoon.actoon.dto.UploadFileDto.UploadCompleteFileRequestDto;
 import com.actoon.actoon.dto.UploadFileDto.UploadFileRequestDto;
+import com.actoon.actoon.repository.ChainRepository;
 import com.actoon.actoon.repository.FileUploadRepository;
 import com.actoon.actoon.repository.NoticeBoardFileRepository;
 import com.actoon.actoon.repository.UserRepository;
@@ -41,6 +42,9 @@ public class FileUploadService {
 
     @Autowired
     private FileUploadRepository fileUploadRepository;
+
+    @Autowired
+    private ChainRepository chainRepository;
 
     @Autowired
     private WebtoonFileRepository webtoonFileRepository;
@@ -113,34 +117,24 @@ public class FileUploadService {
     }
 
     @Transactional
-    public Map<String, Object> storeNoticeBoardFile(UploadFileRequestDto file) throws IOException {
-
+    public Map<String, Object> storeNoticeBoardFile(MultipartFile file) throws IOException {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
         String email = authentication.getName();
-        String url = "";
-
         Map<String, Object> map = new HashMap<>();
 
-        if (file.getFile() == null || file.getFile().getSize() <= 0 || file.getFile().isEmpty()) {
+        if (file == null || file.getSize() <= 0 || file.isEmpty()) {
             map.put("state", HttpStatus.BAD_REQUEST);
             map.put("message", "파일을 첨부해주세요.");
             return map;
         }
-        MultipartFile uploadFile = file.getFile();
 
-        String originalFilename = uploadFile.getOriginalFilename();
+        String originalFilename = file.getOriginalFilename();
         String saveFileName = createSaveFileName(originalFilename);
-        // 2-1.서버에 파일 저장 (로컬 저장소)
-        uploadFile.transferTo(new File(getFullPath(saveFileName)));
 
-        // 2-2. DB에 정보 저장
-        String contentType = uploadFile.getContentType();
-
-        System.out.println("PATH : " + getFullPath(saveFileName));
+        // 파일 저장
+        file.transferTo(new File(getFullPath(saveFileName)));
 
         var user = usersRepository.findByEmail(email).get();
-
         SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
         Date now = new Date();
         String now_dt = format.format(now);
@@ -149,8 +143,6 @@ public class FileUploadService {
                 .url(saveFileName)
                 .created_at(now_dt)
                 .userId(user.getUuid())
-                //.contentType(contentType)
-                //.deleteFlag(false).build();
                 .build();
 
         fileUploadRepository.saveAndFlush(fileInfoRegister);
@@ -161,12 +153,6 @@ public class FileUploadService {
         map.put("url", saveFileName);
 
         return map;
-
-//        catch(Exception e){
-//            Map<String, Object> map = new HashMap<>();
-//            map.put("errors", e.getMessage());
-//            return map;
-//        }
     }
 
     @Transactional
@@ -346,10 +332,10 @@ public class FileUploadService {
             }
 
             // 이미지 파일만 저장
-           if (type.equalsIgnoreCase("IMG")) {
+            if (type.equalsIgnoreCase("IMG")) {
                 noticeBoardFileInfo.setImg_url(saveFileName);
                 map.put("img_url", saveFileName);
-            }   else {
+            } else {
                 map.put("state", HttpStatus.BAD_REQUEST);
                 map.put("message", "이미지 파일만 업로드 가능합니다.");
                 return map;

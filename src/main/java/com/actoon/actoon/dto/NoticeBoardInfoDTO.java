@@ -1,5 +1,6 @@
 package com.actoon.actoon.dto;
 
+import java.util.List;
 import com.actoon.actoon.domain.NoticeBoard;
 import com.actoon.actoon.dto.FileInfoDto.FileInfoResponseDto;
 
@@ -30,6 +31,7 @@ public class NoticeBoardInfoDTO {
     private boolean is_read;
 
     FileDto.CompleteNoticeBoardFilesInfoDto noticeBoardFiles;
+    private List<FileInfoDto.FileInfoResponseDto> fileInfoList;
 
     public void setFileInfo(FileInfoResponseDto file) {
         this.fileInfo = file;

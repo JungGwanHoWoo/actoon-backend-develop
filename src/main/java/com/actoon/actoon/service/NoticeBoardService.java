@@ -1,8 +1,8 @@
 package com.actoon.actoon.service;
 
-import java.io.Console;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -20,6 +20,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.actoon.actoon.domain.Chain;
 import com.actoon.actoon.domain.FileInfoRegister;
 import com.actoon.actoon.domain.NoticeBoard;
 import com.actoon.actoon.domain.NoticeBoardFileInfo;
@@ -28,9 +29,11 @@ import com.actoon.actoon.dto.FileDto.CompleteNoticeBoardFilesInfoDto;
 import com.actoon.actoon.dto.FileInfoDto.FileInfoResponseDto;
 import com.actoon.actoon.dto.NoticeBoardInfoDTO;
 import com.actoon.actoon.dto.NoticeBoardRequestDTO.NoticeBoardCreateRequestDTO;
+import com.actoon.actoon.dto.NoticeBoardRequestDTO.NoticeBoardUpdateRequestDTO;
 import com.actoon.actoon.dto.NoticeBoardResponseDTO.NoticeBoardStateResponseDto;
 import com.actoon.actoon.dto.NoticeBoardResponseDTO.ReadResponseDto;
 import com.actoon.actoon.dto.UserDto.UserInfo;
+import com.actoon.actoon.repository.ChainRepository;
 import com.actoon.actoon.repository.FileUploadRepository;
 import com.actoon.actoon.repository.NoticeBoardFileRepository;
 import com.actoon.actoon.repository.NoticeBoardRepository;
@@ -47,6 +50,9 @@ public class NoticeBoardService {
     UserRepository userRepository;
 
     @Autowired
+    private ChainRepository chainRepository;
+
+    @Autowired
     FileUploadRepository fileRepository;
 
     @Autowired
@@ -56,7 +62,6 @@ public class NoticeBoardService {
 
     // 사용자가 보는 모든 게시판 요청 불러오는 로직
     public Map<String, Object> getNoticeBoard(int noticeBoardId) throws NoPermissionException {
-
         NoticeBoard noticeBoard = noticeBoardRepository.findByUuid(noticeBoardId);
 
         Map<String, Object> result = new HashMap<>();
@@ -70,35 +75,45 @@ public class NoticeBoardService {
 
         NoticeBoardInfoDTO noticeBoardInfo = NoticeBoardInfoDTO.of(noticeBoard);
         try {
+            // 1. noticeBoardId로 관련된 모든 Chain 객체들을 가져옵니다
+            List<Chain> chains = chainRepository.findByBoardId(noticeBoardId);
 
-            if (noticeBoard.getFileId() != null) {
-                Integer fileId = noticeBoard.getFileId();
-                logger.info("어드민 게시판 요청에 대해 fileID 확인 : " + fileId);
+            // 2. 파일 정보를 저장할 리스트를 생성합니다
+            List<FileInfoResponseDto> fileInfoList = new ArrayList<>();
 
+            // 3. 각 Chain의 fileId로 파일 정보를 조회합니다
+            for (Chain chain : chains) {
+                int fileId = chain.getFileId();
                 try {
-                    FileInfoRegister fileOfRequest = fileRepository.findByFileId(fileId);
-                    FileInfoResponseDto fileInfoDto = FileInfoResponseDto.of(fileOfRequest);
-                    noticeBoardInfo.setFileInfo(fileInfoDto);
+                    FileInfoRegister fileInfo = fileRepository.findByFileId(fileId);
+                    if (fileInfo != null && !fileInfo.isDeleteFlag()) {  // deleteFlag가 false인 파일만 포함
+                        FileInfoResponseDto fileInfoDto = FileInfoResponseDto.of(fileInfo, chain);
+                        fileInfoList.add(fileInfoDto);
+                    }
                 } catch (Exception e) {
-                    noticeBoardInfo.setFileInfo(null);
+                    logger.error("파일 정보 조회 실패 - fileId: " + fileId, e);
                 }
             }
 
-            NoticeBoardFileInfo completeFiles = noticeBoardFileRepository.findByNoticeBoardId(noticeBoardId); // nullable 하지..
 
+            // 5. 수집된 파일 정보 리스트를 DTO에 설정합니다
+            noticeBoardInfo.setFileInfoList(fileInfoList);
+
+            // 기존 CompleteFiles 처리 로직 유지
+            NoticeBoardFileInfo completeFiles = noticeBoardFileRepository.findByNoticeBoardId(noticeBoardId);
             if (completeFiles != null) {
                 CompleteFilesInfoDto noticeBoardFiles = CompleteNoticeBoardFilesInfoDto.toDto(completeFiles);
                 noticeBoardInfo.setCompleteFiles(noticeBoardFiles);
-            } else { // NoticeBoardFiles 자체가 null이면 안된다.
+            } else {
                 noticeBoardInfo.setCompleteFiles(new CompleteNoticeBoardFilesInfoDto());
             }
 
             result.put("data", noticeBoardInfo);
 
         } catch (Exception e) {
+            logger.error("게시판 정보 조회 실패", e);
             result.put("state", HttpStatus.BAD_REQUEST);
             result.put("message", e.getMessage());
-
         }
 
         return result;
@@ -119,20 +134,17 @@ public class NoticeBoardService {
         return results;
     }
 
-    @Transactional
     public Map<String, Object> createNoticeBoard(String email, NoticeBoardCreateRequestDTO noticeBoardInfo) throws NoPermissionException, SQLException {
         try {
-            // 사용자 정보 가져오기
             var user = userRepository.findByEmail(email).get();
-
             Map<String, Object> map = new HashMap<>();
 
             // 게시판 엔티티 생성
             NoticeBoard noticeBoard = NoticeBoard
                     .builder()
-                    .title(noticeBoardInfo.getTitle()) // 게시판 제목
-                    .content(noticeBoardInfo.getContent()) // 게시판 내용
-                    .fileId(noticeBoardInfo.getFileId()) // 첨부 파일 ID
+                    .title(noticeBoardInfo.getTitle())
+                    .content(noticeBoardInfo.getContent())
+                    .fileId(noticeBoardInfo.getFileIds().isEmpty() ? null : noticeBoardInfo.getFileIds().get(0)) // 첫 번째 fileId 사용
                     .build();
 
             // 현재 날짜 설정
@@ -140,15 +152,65 @@ public class NoticeBoardService {
             Date now = new Date();
             String now_dt = format.format(now);
 
-            noticeBoard.setCreatedAt(now_dt);  // 생성 날짜 설정
+            noticeBoard.setCreatedAt(now_dt);
             noticeBoard.setUserId(user.getUuid());
-            // 게시판 저장
-
             noticeBoardRepository.save(noticeBoard);
+
+            // Chain 엔티티에서 noticeBoard의 uuid를 가져와서 저장
+            for (Integer fileId : noticeBoardInfo.getFileIds()) { // 모든 fileId에 대해 반복
+                System.out.println("fileId: " + fileId);
+                Chain chain = Chain.builder() // Builder 패턴을 사용하여 Chain 객체 생성
+                        .fileId(fileId) // 반복문에서 가져온 fileId
+                        .boardId(noticeBoard.getUuid()) // 게시판의 uuid를 boardId로 설정
+                        .build(); // Chain 객체 생성
+
+                chainRepository.save(chain); // Chain 저장
+            }
 
             // 응답 데이터 설정
             map.put("state", HttpStatus.CREATED);
             map.put("message", "게시판이 정상적으로 생성되었습니다.");
+
+            return map;
+
+        } catch (IllegalArgumentException e) {
+            // 에러 처리
+            System.out.println("MSG : " + e.getMessage());
+            throw new IllegalArgumentException("잘못된 값입니다.");
+        } catch (Exception e) {
+            // 에러 처리
+            System.out.println("EXCEPTION MSG : " + e.getMessage());
+            throw new IllegalArgumentException(e.getMessage());
+        }
+    }
+
+    @Transactional
+    public Map<String, Object> updateNoticeBoard(String email, Integer noticeBoardId, NoticeBoardUpdateRequestDTO noticeBoardInfo)
+            throws NoPermissionException, SQLException, NoticeBoardNotFoundException {
+        try {
+            // 사용자 정보 가져오기
+            var user = userRepository.findByEmail(email).get();
+
+            // 게시판 존재 여부 확인 - Integer를 사용하도록 수정
+            NoticeBoard noticeBoard = noticeBoardRepository.findById(noticeBoardId)
+                    .orElseThrow(() -> new NoticeBoardNotFoundException("해당 게시글을 찾을 수 없습니다."));
+
+            Map<String, Object> map = new HashMap<>();
+
+            // 게시판 정보 업데이트
+            if (noticeBoardInfo.getTitle() != null) {
+                noticeBoard.setTitle(noticeBoardInfo.getTitle());
+            }
+            if (noticeBoardInfo.getContent() != null) {
+                noticeBoard.setContent(noticeBoardInfo.getContent());
+            }
+
+            // 게시판 저장
+            noticeBoardRepository.save(noticeBoard);
+
+            // 응답 데이터 설정
+            map.put("state", HttpStatus.OK);
+            map.put("message", "게시판이 정상적으로 수정되었습니다.");
 
             return map;
 
@@ -167,7 +229,6 @@ public class NoticeBoardService {
                 throw new IllegalArgumentException(e.getMessage());
             }
         }
-
     }
 
     @Transactional
@@ -249,6 +310,13 @@ public class NoticeBoardService {
         response.setTotal(total); // 게시글 총 개수 설정
 
         return response;
+    }
+
+    public class NoticeBoardNotFoundException extends RuntimeException {
+
+        public NoticeBoardNotFoundException(String message) {
+            super(message);
+        }
     }
 
 }

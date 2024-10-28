@@ -1,6 +1,9 @@
 package com.actoon.actoon.controller;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.actoon.actoon.dto.ExceptionResponse;
 import com.actoon.actoon.dto.UploadFileDto.UploadFileRequestDto;
@@ -62,18 +66,26 @@ public class FileUploadController {
     }
 
     @PostMapping(path = "/noticeBoard-file", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
-    public ResponseEntity<?> storeNoticeBoardFiles(@ModelAttribute UploadFileRequestDto files) throws IOException {
-        System.out.println("FILE CHECK : " + files.getFile());
+    public ResponseEntity<?> storeNoticeBoardFiles(@ModelAttribute UploadFileRequestDto uploadFiles) throws IOException {
+        System.out.println("FILE CHECK : " + uploadFiles.getFiles());
 
         try {
-            Map<String, Object> fileInfo = fileService.storeNoticeBoardFile(files);
-            return ResponseEntity.status(200).body(fileInfo);
+            List<Integer> fileIds = new ArrayList<>(); // fileId 리스트 생성
+
+            for (MultipartFile file : uploadFiles.getFiles()) {
+                Map<String, Object> fileInfo = fileService.storeNoticeBoardFile(file);
+                fileIds.add((Integer) fileInfo.get("fileId")); // 각 fileId를 리스트에 추가
+            }
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("fileIds", fileIds); // 모든 fileId를 포함한 응답 생성
+
+            return ResponseEntity.status(200).body(response);
         } catch (Exception e) {
             System.out.println("EXCEPTION : " + e.getMessage());
             ExceptionResponse errors = new ExceptionResponse(400, e.getMessage());
             return ResponseEntity.status(400).body(errors);
         }
-        //return null;
     }
 
     // method 추가
