@@ -192,16 +192,11 @@ public class NoticeBoardService {
     public Map<String, Object> updateNoticeBoard(String email, Integer noticeBoardId, NoticeBoardUpdateRequestDTO noticeBoardInfo)
             throws NoPermissionException, SQLException, NoticeBoardNotFoundException {
         try {
-            // 사용자 정보 가져오기
-            var user = userRepository.findByEmail(email).get();
-
-            // 게시판 존재 여부 확인 - Integer를 사용하도록 수정
+            // 게시글 존재 여부 및 권한 확인
             NoticeBoard noticeBoard = noticeBoardRepository.findById(noticeBoardId)
                     .orElseThrow(() -> new NoticeBoardNotFoundException("해당 게시글을 찾을 수 없습니다."));
 
-            Map<String, Object> map = new HashMap<>();
-
-            // 게시판 정보 업데이트
+            // 게시글 정보 업데이트
             if (noticeBoardInfo.getTitle() != null) {
                 noticeBoard.setTitle(noticeBoardInfo.getTitle());
             }
@@ -209,32 +204,89 @@ public class NoticeBoardService {
                 noticeBoard.setContent(noticeBoardInfo.getContent());
             }
 
-            // 게시판 저장
+            // 파일 처리
+            if (noticeBoardInfo.getFileIds() != null && !noticeBoardInfo.getFileIds().isEmpty()) {
+                // 기존 Chain 데이터 삭제
+                chainRepository.deleteByBoardId(noticeBoardId);
+
+                // 새로운 Chain 데이터 생성
+                for (Integer fileId : noticeBoardInfo.getFileIds()) {
+                    if (fileId != null) {
+                        // FileInfoRegister 존재 여부 확인
+                        FileInfoRegister fileInfo = fileRepository.findById(fileId)
+                                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 파일입니다: " + fileId));
+
+                        Chain chain = Chain.builder()
+                                .fileId(fileId)
+                                .boardId(noticeBoardId)
+                                .build();
+                        chainRepository.save(chain);
+                    }
+                }
+
+                // 대표 파일 ID 업데이트
+                noticeBoard.setFileId(noticeBoardInfo.getFileIds().get(0));
+            } else {
+                // fileIds가 없을 때: Chain 데이터 삭제 및 대표 파일 ID 제거
+                chainRepository.deleteByBoardId(noticeBoardId);
+                noticeBoard.setFileId(null); // 대표 파일 ID 초기화
+            }
+
+            // 게시글 저장
             noticeBoardRepository.save(noticeBoard);
 
             // 응답 데이터 설정
-            map.put("state", HttpStatus.OK);
-            map.put("message", "게시판이 정상적으로 수정되었습니다.");
+            Map<String, Object> response = new HashMap<>();
+            response.put("state", HttpStatus.OK);
+            response.put("message", "게시글이 성공적으로 수정되었습니다.");
+            response.put("noticeBoardId", noticeBoardId);
 
-            return map;
+            return response;
 
-        } catch (IllegalArgumentException e) {
-            System.out.println("MSG : " + e.getMessage());
-            if (e.getMessage().contains("fileId")) {
-                throw new IllegalArgumentException("잘못된 파일 ID 값입니다.");
-            } else {
-                throw new IllegalArgumentException(e.getMessage());
-            }
         } catch (Exception e) {
-            System.out.println("EXCEPTION MSG : " + e.getMessage());
-            if (e.getMessage().contains("fileId")) {
-                throw new IllegalArgumentException("잘못된 파일 ID 값입니다.");
-            } else {
-                throw new IllegalArgumentException(e.getMessage());
-            }
+            throw new SQLException("게시글 수정 중 오류가 발생했습니다: " + e.getMessage());
         }
     }
 
+    // @Transactional
+    // public Map<String, Object> updateNoticeBoard(String email, Integer noticeBoardId, NoticeBoardUpdateRequestDTO noticeBoardInfo)
+    //         throws NoPermissionException, SQLException, NoticeBoardNotFoundException {
+    //     try {
+    //         // 사용자 정보 가져오기
+    //         var user = userRepository.findByEmail(email).get();
+    //         // 게시판 존재 여부 확인 - Integer를 사용하도록 수정
+    //         NoticeBoard noticeBoard = noticeBoardRepository.findById(noticeBoardId)
+    //                 .orElseThrow(() -> new NoticeBoardNotFoundException("해당 게시글을 찾을 수 없습니다."));
+    //         Map<String, Object> map = new HashMap<>();
+    //         // 게시판 정보 업데이트
+    //         if (noticeBoardInfo.getTitle() != null) {
+    //             noticeBoard.setTitle(noticeBoardInfo.getTitle());
+    //         }
+    //         if (noticeBoardInfo.getContent() != null) {
+    //             noticeBoard.setContent(noticeBoardInfo.getContent());
+    //         }
+    //         // 게시판 저장
+    //         noticeBoardRepository.save(noticeBoard);
+    //         // 응답 데이터 설정
+    //         map.put("state", HttpStatus.OK);
+    //         map.put("message", "게시판이 정상적으로 수정되었습니다.");
+    //         return map;
+    //     } catch (IllegalArgumentException e) {
+    //         System.out.println("MSG : " + e.getMessage());
+    //         if (e.getMessage().contains("fileId")) {
+    //             throw new IllegalArgumentException("잘못된 파일 ID 값입니다.");
+    //         } else {
+    //             throw new IllegalArgumentException(e.getMessage());
+    //         }
+    //     } catch (Exception e) {
+    //         System.out.println("EXCEPTION MSG : " + e.getMessage());
+    //         if (e.getMessage().contains("fileId")) {
+    //             throw new IllegalArgumentException("잘못된 파일 ID 값입니다.");
+    //         } else {
+    //             throw new IllegalArgumentException(e.getMessage());
+    //         }
+    //     }
+    // }
     @Transactional
     public Map<String, Object> deleteNoticeBoard(int noticeBoardId) throws SQLException {
         Map<String, Object> response = new HashMap<>();
